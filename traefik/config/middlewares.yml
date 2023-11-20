@@ -1,0 +1,18 @@
+http:
+  middlewares:
+    nofloc:
+      headers:
+        customResponseHeaders:
+          Permissions-Policy: "interest-cohort=()"
+    secureHeaders:
+      headers:
+        sslRedirect: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+    user-auth:
+      basicAuth:
+        users:
+          - "admin:$apr1$tm53ra6x$FntXd6jcvxYM/YH0P2hcc1"
+        removeHeader: true

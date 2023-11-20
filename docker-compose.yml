@@ -1,4 +1,6 @@
 version: '3.8'
 
 include:
-  - path: 'docker-compose.networks.yml'
+  - path: 
+      - 'docker-compose.networks.yml'
+      - 'traefik/docker-compose.traefik.yml'

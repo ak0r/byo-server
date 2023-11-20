@@ -3,33 +3,60 @@ version: '3.8'
 services:
   traefik:
     image: traefik:latest # See for latest release https://github.com/containous/traefik/releases
-    container_name: traefik
+    container_name: traefik # custom name for the docker container
     restart: unless-stopped
     networks:
-      - front-end
+      - frontend
     ports:
-      - 80:80 # host:container http port
-      - 443:443 # host:container https port
-#      - 8080:8080 # host:container dashboard port
+      - '${TRAEFIK_WEB_ENTRYPOINT:-80}:${TRAEFIK_WEB_ENTRYPOINT:-80}' # host:container http port
+      - '${TRAEFIK_WEBSECURE_ENTRYPOINT:-443}:${TRAEFIK_WEBSECURE_ENTRYPOINT:-443}' # host:container https port
     security_opt:
       - no-new-privileges:true
     environment:
-    - CF_API_EMAIL=${CF_API_EMAIL} # Cloudflare attached email
-    - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN} # Cloudflare API token
+      - CF_API_EMAIL=${TRAEFIK_CF_API_EMAIL} # Cloudflare attached email
+      - CF_DNS_API_TOKEN=${TRAEFIK_CF_DNS_API_TOKEN} # Cloudflare API token
     volumes:
-      - ./config:/etc/traefik # location of Traefik config files
-      - /var/run/docker.sock:/var/run/docker.sock # Give access to the Docker socket
+      - '${BASE_PATH:-.}/traefik/config:/config' # Traefik config files
+      - '${BASE_PATH:-.}/traefik/logs:/logs' # Traefik log files
+      - '${BASE_PATH:-.}/traefik/certs:/certs' # Traefik log files
+      - '/var/run/docker.sock:/var/run/docker.sock' # Give access to the Docker socket
+    # command:
+      # Provider
+      # - '--providers.docker'
+      # - '--providers.docker.exposedbydefault=${TRAEFIK_EXPOSED_BY_DEFAULT:-false}'
+      # - '--providers.docker.network=${DOCKER_EXT_NETWORK}'
+      # Entrypoints
+      # - '--entrypoints.web.address=:${TRAEFIK_WEB_ENTRYPOINT:-80}'
+      # - '--entrypoints.web.http.redirections.entrypoint.to=websecure'
+      # - '--entrypoints.websecure.address=:${TRAEFIK_WEBSECURE_ENTRYPOINT:-443}'
+      # Logs
+      # - '--accesslog.filepath=/logs/access.log'
+      # - '--accesslog.format=json'
+      # - '--log.filepath=/logs/traefik.log'
+      # - '--log.format=json'
+      # - '--log.level=${TRAEFIK_LOG_LEVEL:-ERROR}'
+      # - '--metrics.prometheus.addrouterslabels'
+      # Misc
+      # - '--api.dashboard'
+      # - '--entrypoints.websecure.http.middlewares=compress@file,headers@file${TRAEFIK_PLUGINS:-}'
+      # - '--experimental.plugins.fail2ban.modulename=github.com/tommoulard/fail2ban'
+      # - '--experimental.plugins.fail2ban.version=v0.6.0'
+      # - '--global.checknewversion=${TRAEFIK_CHECK_NEW_VERSION:-false}'
+      # - '--global.sendanonymoususage=${TRAEFIK_SEND_ANONYMOUS_USAGE:-false}'
+      # - '--ping'
+      # - '--providers.file.directory=/dynamic_conf/'
+      # - '--providers.file.watch=true'
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=front-end"
-      - "traefik.http.routers.traefik-secure.entrypoints=websecure"
-      - "traefik.http.routers.traefik-secure.rule=Host(`proxy.infinitestories.in`)"
-      - "traefik.http.routers.traefik-secure.tls=true"
-      - "traefik.http.routers.traefik-secure.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.traefik-secure.service=api@internal"
-      - "traefik.http.routers.traefik-secure.middlewares=user-auth@file"
-      - "traefik.http.services.traefik-service.loadbalancer.server.port=8080"
-
-networks:
-  front-end:
-    external: true
+      traefik.enable: true
+      # http router configuration
+      traefik.http.routers.traefik-secure.entrypoints: 'websecure'
+      traefik.http.routers.traefik-secure.rule: 'Host(`proxy.${SITE_NAME:-localhost}`)'
+      traefik.http.routers.traefik-secure.tls: true
+      traefik.http.routers.traefik-secure.tls.certresolver: '${TRAEFIK_CERTRESOLVER_IN_USE}'
+      traefik.http.routers.traefik-secure.middlewares: 'user-auth@file'
+      # http service configuration
+      traefik.http.routers.traefik-secure.service: 'api@internal'
+      traefik.http.services.traefik-service.loadbalancer.server.port: ${TRAEFIK_DASHBOARD_LOADBALANCER_PORT:-8080}
+      # http middleware authentication
+      # - traefik.http.middlewares.basic-auth.basicauth.removeHeader: true
+      # - traefik.http.middlewares.basic-auth.basicauth.users: '${USER_LIST}'
