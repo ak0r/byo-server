@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:latest # See for latest release https://github.com/containous/traefik/releases
+    container_name: traefik
+    restart: unless-stopped
+    networks:
+      - front-end
+    ports:
+      - 80:80 # host:container http port
+      - 443:443 # host:container https port
+#      - 8080:8080 # host:container dashboard port
+    security_opt:
+      - no-new-privileges:true
+    environment:
+    - CF_API_EMAIL=${CF_API_EMAIL} # Cloudflare attached email
+    - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN} # Cloudflare API token
+    volumes:
+      - ./config:/etc/traefik # location of Traefik config files
+      - /var/run/docker.sock:/var/run/docker.sock # Give access to the Docker socket
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=front-end"
+      - "traefik.http.routers.traefik-secure.entrypoints=websecure"
+      - "traefik.http.routers.traefik-secure.rule=Host(`proxy.infinitestories.in`)"
+      - "traefik.http.routers.traefik-secure.tls=true"
+      - "traefik.http.routers.traefik-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik-secure.service=api@internal"
+      - "traefik.http.routers.traefik-secure.middlewares=user-auth@file"
+      - "traefik.http.services.traefik-service.loadbalancer.server.port=8080"
+
+networks:
+  front-end:
+    external: true
