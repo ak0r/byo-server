@@ -1,2 +1,6 @@
-.log
+*.log
 .env
+.env.local
+.env.production
+*.test
+traefik/certs/*

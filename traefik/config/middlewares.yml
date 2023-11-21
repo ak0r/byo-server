@@ -11,8 +11,9 @@ http:
         stsIncludeSubdomains: true
         stsPreload: true
         stsSeconds: 31536000
-    user-auth:
+    userAuth:
       basicAuth:
+        # admin/qwer1234
         users:
           - "admin:$apr1$tm53ra6x$FntXd6jcvxYM/YH0P2hcc1"
         removeHeader: true
