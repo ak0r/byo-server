@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   traefik:
     image: traefik:${TRAEFIK_IMAGE_VERSION:-latest} # See for latest release https://github.com/containous/traefik/releases
     container_name: traefik # custom name for the docker container
     restart: unless-stopped
     networks:
-      - frontend
+      - proxy
     ports:
       - '${TRAEFIK_WEB_ENTRYPOINT:-80}:${TRAEFIK_WEB_ENTRYPOINT:-80}' # host:container http port
       - '${TRAEFIK_WEBSECURE_ENTRYPOINT:-443}:${TRAEFIK_WEBSECURE_ENTRYPOINT:-443}' # host:container https port
@@ -17,16 +15,17 @@ services:
       - CF_DNS_API_TOKEN=${TRAEFIK_CF_DNS_API_TOKEN:-changethistoken123456789} # Cloudflare API token
 
     volumes:
-      - './config:/config' # Traefik config files
-      - './logs:/logs' # Traefik log files
-      - './certs:/certs' # Traefik log files
-      - '/var/run/docker.sock:/var/run/docker.sock' # Give access to the Docker socket
+      - "/etc/localtime:/etc/localtime:ro"
+      - "./config:/config" # Traefik config files
+      - "${DOCKER_BASE_PATH:-/docker/apps}/traefik/logs:/logs" # Traefik log files
+      - "${DOCKER_BASE_PATH:-/docker/apps}/traefik/certs:/certs" # Traefik log files
+      - "/var/run/docker.sock:/var/run/docker.sock:ro" # Give access to the Docker socket
 
     command:
       # Provider
       - '--providers.docker'
       - '--providers.docker.exposedbydefault=${TRAEFIK_EXPOSED_BY_DEFAULT:-false}'
-      - '--providers.docker.network=make-my-server_srv'
+      - '--providers.docker.network=proxy'
       
       # Entrypoints
       - '--entrypoints.web.address=:${TRAEFIK_WEB_ENTRYPOINT:-80}'
