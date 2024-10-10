@@ -1,0 +1,3 @@
+networks:
+  internal_proxy: 
+    name: internal_proxy

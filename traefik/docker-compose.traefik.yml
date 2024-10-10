@@ -1,102 +1,57 @@
 services:
   traefik:
-    image: traefik:${TRAEFIK_IMAGE_VERSION:-latest} # See for latest release https://github.com/containous/traefik/releases
-    container_name: traefik # custom name for the docker container
-    restart: unless-stopped
+    image: traefik:${TRAEFIK_IMAGE_VERSION:-latest}
+    container_name: traefik
+    restart: always
     networks:
-      - proxy
+      - internal_proxy
     ports:
-      - '${TRAEFIK_WEB_ENTRYPOINT:-80}:${TRAEFIK_WEB_ENTRYPOINT:-80}' # host:container http port
-      - '${TRAEFIK_WEBSECURE_ENTRYPOINT:-443}:${TRAEFIK_WEBSECURE_ENTRYPOINT:-443}' # host:container https port
-    # security_opt:
-    #   - no-new-privileges:true
-    environment:
-      - CF_API_EMAIL=${TRAEFIK_CF_API_EMAIL:-change@changeme.com} # Cloudflare attached email
-      - CF_DNS_API_TOKEN=${TRAEFIK_CF_DNS_API_TOKEN:-changethistoken123456789} # Cloudflare API token
-
+      - ${TRAEFIK_UNSECURED_ENTRYPOINT:-80}:80
+      - ${TRAEFIK_SECURED_ENTRYPOINT:-443}:443
     volumes:
-      - "/etc/localtime:/etc/localtime:ro"
-      - "./config:/config" # Traefik config files
-      - "${DOCKER_BASE_PATH:-/docker/apps}/traefik/logs:/logs" # Traefik log files
-      - "${DOCKER_BASE_PATH:-/docker/apps}/traefik/certs:/certs" # Traefik log files
-      - "/var/run/docker.sock:/var/run/docker.sock:ro" # Give access to the Docker socket
-
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${DOCKER_DATA_PATH}/traefik/:/etc/traefik
     command:
-      # Provider
-      - '--providers.docker'
-      - '--providers.docker.exposedbydefault=${TRAEFIK_EXPOSED_BY_DEFAULT:-false}'
-      - '--providers.docker.network=proxy'
-      
-      # Entrypoints
-      - '--entrypoints.web.address=:${TRAEFIK_WEB_ENTRYPOINT:-80}'
-      - '--entrypoints.web.http.redirections.entrypoint.to=websecure'
-      - '--entrypoints.websecure.address=:${TRAEFIK_WEBSECURE_ENTRYPOINT:-443}'
-      - '--entrypoints.websecure.http.middlewares=secureHeaders@file,nofloc@file'
-      - '--entrypoints.websecure.http.tls.domains[0].main=${SITE_NAME}' # remove this in local setup
-      - '--entrypoints.websecure.http.tls.domains[0].sans=*.{${SITE_NAME}' # remove this in local setup
-
-      # Certificates - HTTPChallenge
-      - '--certificatesresolvers.staging=true'
-      - '--certificatesresolvers.staging.acme.email=${ADMIN_EMAIL:-changeme@changeme.org}'
-      - '--certificatesresolvers.staging.acme.httpchallenge=true' # remove this in local setup
-      - '--certificatesresolvers.staging.acme.httpchallenge.entrypoint=web'  # remove this in local setup
-      - '--certificatesresolvers.staging.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory'
-      - '--certificatesresolvers.staging.acme.storage=/certs/acme-staging.json'
-
-      - '--certificatesresolvers.production=true'
-      - '--certificatesresolvers.production.acme.email=${ADMIN_EMAIL:-changeme@changeme.org}'
-      - '--certificatesresolvers.production.acme.httpchallenge=true' # remove this in local setup
-      - '--certificatesresolvers.production.acme.httpchallenge.entrypoint=web' # remove this in local setup
-      - '--certificatesresolvers.production.acme.caserver=https://acme-v02.api.letsencrypt.org/directory'
-      - '--certificatesresolvers.production.acme.storage=/certs/acme-production.json'
-
-      # Certificates - DNSChallenge
-      - "--certificatesresolvers.cf-staging=true"
-      - "--certificatesresolvers.cf-staging.acme.email=${ADMIN_EMAIL:-changeme@changeme.org}"
-      - "--certificatesresolvers.cf-staging.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
-      - "--certificatesresolvers.cf-staging.acme.KeyType=EC384"
-      - "--certificatesresolvers.cf-staging.acme.storage=/certs/cf-staging.json"
-      - "--certificatesresolvers.cf-staging.acme.dnschallenge=true"
-      - "--certificatesresolvers.cf-staging.acme.dnschallenge.provider=cloudflare"
-      - "--certificatesresolvers.cf-staging.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53"
-
-      - "--certificatesresolvers.cf-production=true"
-      - "--certificatesresolvers.cf-production.acme.email=${ADMIN_EMAIL:-changeme@changeme.org}"
-      - "--certificatesresolvers.cf-production.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
-      - "--certificatesresolvers.cf-production.acme.KeyType=EC384"
-      - "--certificatesresolvers.cf-production.acme.storage=/certs/cf-production.json"
-      - "--certificatesresolvers.cf-production.acme.dnschallenge=true"
-      - "--certificatesresolvers.cf-production.acme.dnschallenge.provider=cloudflare"
-      - "--certificatesresolvers.cf-production.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53"
-
-      # Logs
-      - '--accesslog.filepath=/logs/access.log'
-      - '--accesslog.format=json'
-      - '--log.filepath=/logs/traefik.log'
+      #provider
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--providers.docker.network=internal_proxy'
+      #logs
+      - '--log.level=${TRAEFIK_LOG_LEVEL}'
+      - '--log.filepath=/etc/traefik/logs/traefik.log'
       - '--log.format=json'
-      - '--log.level=${TRAEFIK_LOG_LEVEL:-ERROR}'
-      - '--metrics.prometheus.addrouterslabels'
-
-      # Misc
-      - '--api.dashboard'
-      - '--global.checknewversion=${TRAEFIK_CHECK_NEW_VERSION:-false}'
-      - '--global.sendanonymoususage=${TRAEFIK_SEND_ANONYMOUS_USAGE:-false}'
-      - '--ping'
-      - '--providers.file.directory=/config/'
-      - '--providers.file.watch=true'
-
+      - '--accesslog.filepath=/etc/traefik/logs/access.log'
+      - '--accesslog.format=json'
+      #misc
+      - '--api.dashboard=true'
+      #entrypoints
+      - '--entrypoints.web.address=:${TRAEFIK_UNSECURED_ENTRYPOINT:-80}'
+      - '--entrypoints.websecure.address=:${TRAEFIK_SECURED_ENTRYPOINT:-443}'
+      #SSL
+      - '--certificatesresolvers.letsencrypt.acme.dnschallenge=true'
+      - '--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare'
+      - '--certificatesresolvers.letsencrypt.acme.caserver=${TRAEFIK_ACME_CASERVER:-changeme}'
+      - '--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL:-changeme@example.org}'
+      - '--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/letsencrypt/acme.json'
+      - '--certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53'
+    environment:
+      - CF_API_EMAIL=${TRAEFIK_CF_ADMIN_EMAIL:-changeme@example.org}
+      - CF_DNS_API_TOKEN=${TRAEFIK_CF_DNS_API_TOKEN:-changeme}
     labels:
-      - "traefik.enable=true"
-      # http router configuration
-      - "traefik.http.routers.traefik-secure.entrypoints=websecure"
-      # - "traefik.http.routers.traefik-secure.middlewares=userAuth@file" # use for default user
-      - "traefik.http.routers.traefik-secure.middlewares=dashAuth@docker"
-      - "traefik.http.routers.traefik-secure.rule=Host(`proxy.${SITE_NAME:-localhost}`)"
-      - "traefik.http.routers.traefik-secure.tls=true"
-      - "traefik.http.routers.traefik-secure.tls.certresolver=${TRAEFIK_CERTRESOLVER_IN_USE:-staging}"
-      # http service configuration
-      - "traefik.http.routers.traefik-secure.service=api@internal"
-      - "traefik.http.services.traefik-service.loadbalancer.server.port=${TRAEFIK_DASHBOARD_LOADBALANCER_PORT:-8080}"
-      # http middleware authentication
-      - "traefik.http.middlewares.dashAuth.basicauth.removeHeader=true"
-      - "traefik.http.middlewares.dashAuth.basicauth.users=${USER_LIST}"
+      - 'traefik.enable=true'
+      - 'traefik.http.middlewares.traefik-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.middlewares.dashboard.basicauth.users=${TRAEFIK_AUTH_USERS}'
+      # - 'traefik.http.middlewares.dashboard.basicauth.removeHeader=true'
+      - 'traefik.http.routers.traefik.entrypoints=web'
+      - 'traefik.http.routers.traefik.rule=Host(`traefik.${SITE_NAME:-localhost}`)'
+      - 'traefik.http.routers.traefik.middlewares=traefik-https-redirect'
+      - 'traefik.http.routers.traefik-secure.tls=true'
+      - 'traefik.http.routers.traefik-secure.entrypoints=websecure'
+      - 'traefik.http.routers.traefik-secure.rule=Host(`traefik.${SITE_NAME:-localhost}`)'
+      - 'traefik.http.routers.traefik-secure.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.traefik-secure.tls.domains[0].main=${TOP_LEVEL_DOMAIN:-example.org}'
+      - 'traefik.http.routers.traefik-secure.tls.domains[0].sans=*.${TOP_LEVEL_DOMAIN:-example.org}'
+      - 'traefik.http.routers.traefik-secure.service=api@internal'
+      - 'traefik.http.routers.traefik-secure.middlewares=dashboard@docker'
+      - 'traefik.http.services.traefik.loadbalancer.server.port=8080'

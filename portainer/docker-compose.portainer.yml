@@ -1,0 +1,19 @@
+services:
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:${PORTAINER_IMAGE_VERSION:-latest}
+    restart: always
+    networks:
+      - internal_proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKER_DATA_PATH}/portainer/data:/data
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.portainer.entrypoints=web,websecure'
+      # - 'traefik.http.routers.portainer.middlewares=dashboard@docker'
+      - 'traefik.http.routers.portainer.rule=Host(`portainer.${SITE_NAME:-localhost}`)'
+      - 'traefik.http.routers.portainer.tls=true'
+      - 'traefik.http.routers.portainer.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.portainer.service=portainer-service'
+      - 'traefik.http.services.portainer-service.loadbalancer.server.port=9000'
