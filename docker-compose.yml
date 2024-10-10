@@ -1,4 +1,4 @@
 include:
-  - path: 'commons/docker-compose.networks.yml'
+  - path: 'common/docker-compose.networks.yml'
   - path: 'traefik/docker-compose.traefik.yml'
-    
+  - path: 'portainer/docker-compose.portainer.yml'
