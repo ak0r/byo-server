@@ -4,19 +4,19 @@ services:
     container_name: traefik
     restart: always
     networks:
-      - internal_proxy
+      - proxy-external
     ports:
       - ${TRAEFIK_UNSECURED_ENTRYPOINT:-80}:80
       - ${TRAEFIK_SECURED_ENTRYPOINT:-443}:443
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ${DOCKER_DATA_PATH}/traefik/:/etc/traefik
+      - ${GLOBAL_DOCKER_DATA_PATH:-/docker/apps}/traefik/:/etc/traefik
     command:
       #provider
       - '--providers.docker=true'
       - '--providers.docker.exposedbydefault=false'
-      - '--providers.docker.network=internal_proxy'
+      - '--providers.docker.network=proxy-external'
       #logs
       - '--log.level=${TRAEFIK_LOG_LEVEL}'
       - '--log.filepath=/etc/traefik/logs/traefik.log'
@@ -26,8 +26,8 @@ services:
       #misc
       - '--api.dashboard=true'
       #entrypoints
-      - '--entrypoints.web.address=:${TRAEFIK_UNSECURED_ENTRYPOINT:-80}'
-      - '--entrypoints.websecure.address=:${TRAEFIK_SECURED_ENTRYPOINT:-443}'
+      - '--entrypoints.http.address=:${TRAEFIK_UNSECURED_ENTRYPOINT:-80}'
+      - '--entrypoints.https.address=:${TRAEFIK_SECURED_ENTRYPOINT:-443}'
       #SSL
       - '--certificatesresolvers.letsencrypt.acme.dnschallenge=true'
       - '--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare'
@@ -42,16 +42,15 @@ services:
       - 'traefik.enable=true'
       - 'traefik.http.middlewares.traefik-https-redirect.redirectscheme.scheme=https'
       - 'traefik.http.middlewares.dashboard.basicauth.users=${TRAEFIK_AUTH_USERS}'
-      # - 'traefik.http.middlewares.dashboard.basicauth.removeHeader=true'
-      - 'traefik.http.routers.traefik.entrypoints=web'
-      - 'traefik.http.routers.traefik.rule=Host(`traefik.${SITE_NAME:-localhost}`)'
+      - 'traefik.http.routers.traefik.entrypoints=http'
+      - 'traefik.http.routers.traefik.rule=Host(`traefik.${GLOBAL_SITE_NAME:-localhost}`)'
       - 'traefik.http.routers.traefik.middlewares=traefik-https-redirect'
       - 'traefik.http.routers.traefik-secure.tls=true'
-      - 'traefik.http.routers.traefik-secure.entrypoints=websecure'
-      - 'traefik.http.routers.traefik-secure.rule=Host(`traefik.${SITE_NAME:-localhost}`)'
+      - 'traefik.http.routers.traefik-secure.entrypoints=https'
+      - 'traefik.http.routers.traefik-secure.rule=Host(`traefik.${GLOBAL_SITE_NAME:-localhost}`)'
       - 'traefik.http.routers.traefik-secure.tls.certresolver=letsencrypt'
-      - 'traefik.http.routers.traefik-secure.tls.domains[0].main=${TOP_LEVEL_DOMAIN:-example.org}'
-      - 'traefik.http.routers.traefik-secure.tls.domains[0].sans=*.${TOP_LEVEL_DOMAIN:-example.org}'
+      - 'traefik.http.routers.traefik-secure.tls.domains[0].main=${TRAEFIK_TOP_LEVEL_DOMAIN:-example.org}'
+      - 'traefik.http.routers.traefik-secure.tls.domains[0].sans=*.${TRAEFIK_TOP_LEVEL_DOMAIN:-example.org}'
       - 'traefik.http.routers.traefik-secure.service=api@internal'
       - 'traefik.http.routers.traefik-secure.middlewares=dashboard@docker'
       - 'traefik.http.services.traefik.loadbalancer.server.port=8080'
